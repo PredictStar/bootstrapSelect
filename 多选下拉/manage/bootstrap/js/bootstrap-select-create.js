@@ -1,4 +1,5 @@
 (function ($) {
+    var bolSelect=false;//不让能选择"请选择"
     //1.定义jquery的扩展方法bootstrapSelect
     $.fn.bootstrapSelect = function (options, param) {
         if (typeof options == 'string') {
@@ -13,6 +14,9 @@
         target.attr('textfield', options.textField);
         target.empty();
         var option = $('<option disabled=\'disabled\'></option>');
+        if(bolSelect){
+            option = $('<option></option>');
+        }
         option.attr('value', '');
         option.text(options.placeholder);
         target.append(option);
@@ -60,6 +64,9 @@
             $.getJSON(url, function (data) {
                 jq.empty();
                 var option = $('<option disabled=\'disabled\'></option>');
+                if(bolSelect){
+                    option = $('<option></option>');
+                }
                 option.attr('value', '');
                 option.text('请选择');
                 jq.append(option);
@@ -99,77 +106,99 @@
         $(select).selectpicker('refresh');//使生成新的下拉选择框
         $(select).on('change', function () {
             if($(this)){
-                var listValue=[];
+                var listValue=$(this).parents(".bootstrap-select").eq(0).find(".filter-option-inner-inner").attr("data-filter-option-inner-inner-value");
 
-                var selectValue=$(this).parents(".bootstrap-select").eq(0).find(".dropdown-menu  a.selected").each(function(index,element){
-                    listValue.push($(element).text());
-                });
-                if(listValue.length==0){
+
+                if(!listValue){
                     $(this).next(".dropdown-toggle").addClass("bs-placeholder");
-                    //console.log($(this).parents(".bootstrap-select").eq(0).find(".filter-option-inner-inner")[0].outerHTML);
-                    $(this).parents(".bootstrap-select").eq(0).find(".filter-option-inner-inner").text("没有选中任何项");
+                    $(this).parents(".bootstrap-select").eq(0).find(".filter-option-inner-inner").text("没有选中任何项!");
                 }else{
                     $(this).next(".dropdown-toggle").removeClass("bs-placeholder");
-                    var listValueStr=listValue.toLocaleString();
-                    if(!$(select).attr("multiple")){//说明是单选
+
+                    /*if(!$(select).attr("multiple")){//说明是单选
                         listValueStr=$(select).find("[value='"+$(select).val()+"']").text();
                         //console.log(listValueStr);
-                    }
-                    $(this).parents(".bootstrap-select").eq(0).find(".filter-option-inner-inner").text(listValueStr);
+                    }*/
+                    $(this).parents(".bootstrap-select").eq(0).find(".filter-option-inner-inner").text(listValue);
                 }
             }
         });
     }
-    //字典函数//例bootstrapSelect.dictionaries({selectID:'test1',mark:"dwgl_orgType",type:"1"});
+    //字典函数//例bootstrapSelect.dictionaries({selectID:'test1',mark:"dwgl_orgType",type:"1"});//若设置bolSelect为true则可选中"请选择"(即空)
+    var dataRecordS={};
     bootstrapSelect.dictionaries=function(param){
-        $.ajax({
-            'url' :'/system/config/dictionary/getListByMark',
-            'type':'get',
-            'dataType':'json',
-            'data' : {
-                "mark":param.mark,
-                "type":param.type
-            },
-            'success' : function(data){
-                if(data.flag == "1"){
-                    var list=[];
-                    $(data.data).each(function(index,item){
-                        var map={};
-                        map['text']=item.name;
-                        map['value']=item.code;
-                        if(param.global){//传进全局变量进行赋值
-                            param.global[item.code]=item;
-                        }
-                        list.push(map);
-                    });
-                    //console.log(list);
-                    if(list.length!=0){
-                        $('#'+param.selectID).bootstrapSelect({
-                            data: list,
-                            valueField: 'value',//根据返回值去写此进行绑定值
-                            textField: 'text',
-                            onLoadSuccess:function () {
-                                //console.log(("成功返回"));
-                                bootstrapSelect.init("#"+param.selectID);
-                                if(param.onLoadSuccess){
-                                    //console.log("成功后执行的回调函数");
-                                    param.onLoadSuccess();
-                                }
-                            }
-                        });
-                    }
-                }else{
-                    if(data.msg){
-                        layer.msg("获取字典项失败！" + data.msg,{icon:2});
-                    }else{
-                        layer.msg("获取字典项异常！请刷新重试！",{icon:2});
+        $('#'+param.selectID).selectpicker('destroy');//若已存在则销毁,此句作用见文档
+        if(param.bolSelect){
+            bolSelect=true;
+        }
+        if(param.bolRecord&&dataRecordS.hasOwnProperty(param.mark)){
+            $('#'+param.selectID).bootstrapSelect({
+                data: dataRecordS[param.mark],
+                valueField: 'value',//根据返回值去写此进行绑定值
+                textField: 'text',
+                onLoadSuccess:function () {
+                    bootstrapSelect.init("#"+param.selectID);
+                    if(param.onLoadSuccess){
+                        param.onLoadSuccess();
                     }
                 }
-            },'error':function(){
-                layer.msg("加载字典项异常！请刷新重试！",{icon:2});
-            },'complete':function(){
+            });
+
+        }else{
+            var asyncT=true;
+            if(param.bolRecord){
+                asyncT=false;//异步原因是为了使缓存dataRecord能一开始就赋上值
             }
-        });
+            $.ajax({
+                'url' :'/system/config/dictionary/getListByMark',
+                'type':'get',
+                'dataType':'json',
+                'async': asyncT,
+                'data' : {
+                    "mark":param.mark,
+                    "type":param.type
+                },
+                'success' : function(data){
+                    if(data.flag == "1"){
+                        var list=[];
+                        $(data.data).each(function(index,item){
+                            var map={};
+                            map['text']=item.name;
+                            map['value']=item.code;
+                            if(param.global){//传进全局变量进行赋值
+                                param.global[item.code]=item;
+                            }
+                            list.push(map);
+                        });
+                        if(list.length!=0){
+                            dataRecordS[param.mark]=list;
+                            $('#'+param.selectID).bootstrapSelect({
+                                data: list,
+                                valueField: 'value',//根据返回值去写此进行绑定值
+                                textField: 'text',
+                                onLoadSuccess:function () {
+                                    //console.log(("成功返回"));
+                                    bootstrapSelect.init("#"+param.selectID);
+                                    if(param.onLoadSuccess){
+                                        //console.log("成功后执行的回调函数");
+                                        param.onLoadSuccess();
+                                    }
+                                }
+                            });
+                        }
+                    }else{
+                        if(data.msg){
+                            layer.msg("获取字典项失败！" + data.msg,{icon:2});
+                        }else{
+                            layer.msg("获取字典项异常！请刷新重试！",{icon:2});
+                        }
+                    }
+                },'error':function(){
+                    layer.msg("加载字典项异常！请刷新重试！",{icon:2});
+                },'complete':function(){
+                }
+            });
+        }
     }
 
 

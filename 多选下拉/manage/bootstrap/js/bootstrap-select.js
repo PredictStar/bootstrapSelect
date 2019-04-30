@@ -1490,10 +1490,12 @@
             }
 
             //strip all HTML tags and trim the result, then unescape any escaped tags
-            this.$button[0].title = htmlUnescape(title.replace(/<[^>]*>?/g, '').trim());
-            //console.log("xxxx@");
-            this.$button.find('.filter-option-inner-inner')[0].innerHTML = title;
 
+            this.$button[0].title = htmlUnescape(title.replace(/<[^>]*>?/g, '').trim());
+            //debugger;
+            this.$button.find('.filter-option-inner-inner').text(title);
+            //加个属性配置,当设置选中值时,让被选中内容展示在页面,配合init方法里的change一起使用
+            this.$button.find('.filter-option-inner-inner').attr("data-filter-option-inner-inner-value",title)
             this.$element.trigger('rendered' + EVENT_KEY);
         },
 
